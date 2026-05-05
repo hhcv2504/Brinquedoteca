@@ -3,7 +3,6 @@ import { useEffect, useState } from "react"
 const SHEETS_URL = import.meta.env.VITE_SHEETS_WEBAPP_URL
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD
 
-console.log("SENHA:", ADMIN_PASSWORD)
 
 const unidades = [
   "Todas",
