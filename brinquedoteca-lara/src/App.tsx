@@ -1,5 +1,6 @@
 import { useState } from "react"
 import logo from "./assets/logo.png"
+import Admin from "./Admin"
 
 const SHEETS_URL = import.meta.env.VITE_SHEETS_WEBAPP_URL
 
@@ -35,6 +36,12 @@ function formatarTelefone(valor: string) {
 }
 
 export default function App() {
+  const isAdmin = window.location.pathname === "/equipe-lara-2026"
+
+  return isAdmin ? <Admin /> : <Cadastro />
+}
+
+function Cadastro() {
   const [responsavel, setResponsavel] = useState<Responsavel>({
     brinquedoteca: "",
     nome: "",
@@ -92,24 +99,31 @@ export default function App() {
 
     if (!responsavel.brinquedoteca) return "Selecione a brinquedoteca."
     if (!responsavel.nome.trim()) return "Informe o nome do responsável."
+
     if (telefone.length < 10 || telefone.length > 11) {
       return "Informe um WhatsApp válido com DDD."
     }
+
     if (!responsavel.nascimento) {
       return "Informe a data de nascimento do responsável."
     }
+
     if (criancasValidas.length === 0) {
       return "Adicione pelo menos uma criança."
     }
+
     if (algumaCriancaIncompleta) {
       return "Complete nome e idade de todas as crianças preenchidas."
     }
+
     if (!visualizouTermo) {
       return "Abra o termo de autorização antes de continuar."
     }
+
     if (!aceitouTermo) {
       return "Você precisa aceitar o termo de autorização."
     }
+
     if (!navigator.onLine) {
       return "Você está sem internet. Conecte-se e tente novamente."
     }
@@ -208,9 +222,11 @@ export default function App() {
         {enviado && (
           <section className="mb-4 rounded-3xl bg-green-100 p-5 text-center text-green-900 shadow-xl">
             <p className="text-2xl">✅</p>
+
             <h2 className="mt-2 text-xl font-extrabold">
               Cadastro enviado com sucesso!
             </h2>
+
             <p className="mt-1 text-sm">
               Nossa equipe recebeu as informações.
             </p>
@@ -254,6 +270,7 @@ export default function App() {
                 className="w-full rounded-2xl border border-purple-200 bg-white px-4 py-4 outline-none focus:border-purple-700"
               >
                 <option value="">Selecione uma opção</option>
+
                 {brinquedotecas.map((brinquedoteca) => (
                   <option key={brinquedoteca} value={brinquedoteca}>
                     {brinquedoteca}
@@ -323,6 +340,7 @@ export default function App() {
                   <h2 className="text-xl font-extrabold">
                     Dados das crianças
                   </h2>
+
                   <p className="mt-1 text-sm text-purple-700">
                     Adicione quantas crianças precisar.
                   </p>
