@@ -35,6 +35,23 @@ function formatarTelefone(valor: string) {
   return `(${numeros.slice(0, 2)}) ${numeros.slice(2, 7)}-${numeros.slice(7)}`
 }
 
+function jsonp<T>(url: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const callback = "cb_" + Date.now()
+
+    ;(window as any)[callback] = (data: T) => {
+      resolve(data)
+      delete (window as any)[callback]
+      script.remove()
+    }
+
+    const script = document.createElement("script")
+    script.src = `${url}&callback=${callback}`
+    script.onerror = reject
+    document.body.appendChild(script)
+  })
+}
+
 export default function App() {
   const isAdmin = window.location.pathname === "/equipe-lara-2026"
 
@@ -60,6 +77,12 @@ function Cadastro() {
   const [erro, setErro] = useState("")
   const [enviando, setEnviando] = useState(false)
   const [enviado, setEnviado] = useState(false)
+
+  const [ultimoCadastroId, setUltimoCadastroId] = useState("")
+  const [mostrarAvaliacao, setMostrarAvaliacao] = useState(false)
+  const [nota, setNota] = useState<number | null>(null)
+  const [comentario, setComentario] = useState("")
+  const [avaliacaoEnviada, setAvaliacaoEnviada] = useState(false)
 
   function abrirTermo() {
     setVisualizouTermo(true)
@@ -144,11 +167,14 @@ function Cadastro() {
     setErro("")
     setEnviando(true)
 
+    const cadastroId = crypto.randomUUID()
+
     const criancasValidas = criancas.filter(
       (crianca) => crianca.nome.trim() && crianca.idade.trim()
     )
 
     const dados = {
+      cadastroId,
       responsavel: {
         ...responsavel,
         telefone: limparTelefone(responsavel.telefone),
@@ -171,13 +197,49 @@ function Cadastro() {
         body: JSON.stringify(dados),
       })
 
+      setUltimoCadastroId(cadastroId)
       setEnviado(true)
+      setMostrarAvaliacao(false)
       window.scrollTo({ top: 0, behavior: "smooth" })
     } catch {
       setErro("Não foi possível enviar. Tente novamente.")
     } finally {
       setEnviando(false)
     }
+  }
+
+  async function enviarAvaliacao() {
+    if (nota === null) {
+      alert("Selecione uma nota de 0 a 5.")
+      return
+    }
+
+    const url =
+      `${SHEETS_URL}?acao=avaliar` +
+      `&cadastroId=${encodeURIComponent(ultimoCadastroId)}` +
+      `&nota=${encodeURIComponent(String(nota))}` +
+      `&comentario=${encodeURIComponent(comentario)}`
+
+    try {
+      await jsonp(url)
+      setAvaliacaoEnviada(true)
+      setMostrarAvaliacao(false)
+    } catch {
+      alert("Não foi possível enviar sua avaliação.")
+    }
+  }
+
+  function falarComResponsavel() {
+    const telefoneResponsavelBrinquedoteca = "5561999999999"
+
+    const mensagem = encodeURIComponent(
+      "Olá! Gostaria de falar com a responsável pela brinquedoteca."
+    )
+
+    window.open(
+      `https://wa.me/${telefoneResponsavelBrinquedoteca}?text=${mensagem}`,
+      "_blank"
+    )
   }
 
   function novoCadastro() {
@@ -194,10 +256,67 @@ function Cadastro() {
     setAceitouPromocoes(false)
     setErro("")
     setEnviado(false)
+    setUltimoCadastroId("")
+    setMostrarAvaliacao(false)
+    setNota(null)
+    setComentario("")
+    setAvaliacaoEnviada(false)
   }
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-purple-950 via-purple-900 to-fuchsia-900 px-4 py-6 text-white">
+      {mostrarAvaliacao && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 text-purple-950 shadow-2xl">
+            <h2 className="text-2xl font-extrabold">Avalie sua experiência</h2>
+
+            <p className="mt-2 text-sm text-purple-700">
+              De 0 a 5, como foi sua experiência com a brinquedoteca?
+            </p>
+
+            <div className="mt-5 grid grid-cols-6 gap-2">
+              {[0, 1, 2, 3, 4, 5].map((numero) => (
+                <button
+                  key={numero}
+                  type="button"
+                  onClick={() => setNota(numero)}
+                  className={`rounded-2xl py-3 text-lg font-extrabold ${
+                    nota === numero
+                      ? "bg-yellow-300 text-purple-950"
+                      : "bg-purple-100 text-purple-800"
+                  }`}
+                >
+                  {numero}
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              value={comentario}
+              onChange={(event) => setComentario(event.target.value)}
+              placeholder="Comentário opcional"
+              className="mt-4 min-h-24 w-full rounded-2xl border border-purple-200 p-4 outline-none focus:border-purple-700"
+            />
+
+            <button
+              type="button"
+              onClick={enviarAvaliacao}
+              className="mt-4 w-full rounded-2xl bg-purple-700 px-4 py-4 font-extrabold text-white"
+            >
+              Enviar avaliação
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMostrarAvaliacao(false)}
+              className="mt-3 w-full rounded-2xl border border-purple-200 px-4 py-3 font-bold text-purple-800"
+            >
+              Avaliar depois
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="mx-auto w-full max-w-md">
         <header className="mb-6 text-center">
           <img
@@ -231,10 +350,32 @@ function Cadastro() {
               Nossa equipe recebeu as informações.
             </p>
 
+            {avaliacaoEnviada && (
+              <p className="mt-3 rounded-2xl bg-white p-3 text-sm font-bold text-green-700">
+                Obrigado pela sua avaliação!
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setMostrarAvaliacao(true)}
+              className="mt-4 w-full rounded-2xl bg-yellow-300 px-6 py-4 font-extrabold text-purple-950"
+            >
+              Avalie-nos
+            </button>
+
+            <button
+              type="button"
+              onClick={falarComResponsavel}
+              className="mt-3 w-full rounded-2xl bg-green-500 px-6 py-4 font-extrabold text-white"
+            >
+              Falar com a responsável
+            </button>
+
             <button
               type="button"
               onClick={novoCadastro}
-              className="mt-4 w-full rounded-2xl bg-green-500 px-6 py-4 font-extrabold text-white"
+              className="mt-3 w-full rounded-2xl border border-green-400 px-6 py-4 font-extrabold text-green-800"
             >
               Fazer novo cadastro
             </button>
